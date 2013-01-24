@@ -44,7 +44,7 @@ void WriteOutput(char* OutputFile, const double* const Vars, const int NumFrames
 	Fp.open(OutputFile);
 
 	for(int i = 0; i < NumFrames; i++)
-		Fp << Vars[i] << "\t" << i << endl;
+		Fp << i << "\t" << Vars[i]  << endl;
 
 	Fp.close();
 }
@@ -87,7 +87,7 @@ int main(int argc, char** argv){
 
 		string* FrameDigits = CreateFrameFile(NumFiles,FileDigits);
 		double *Forces = new double[NumOPs], *OPs = new double[NumOPs];
-		
+
 		if(argc > 6)
 			NumOPs = atoi(argv[6]);
 		else {
