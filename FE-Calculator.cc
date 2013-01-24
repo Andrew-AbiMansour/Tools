@@ -4,20 +4,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <algorithm>
+#include <string>
+#include <iomanip>
 
 using namespace std;
 
 bool CheckForInputError(int argc) {
-	if(argc < 4) {
+	if(argc < 7) {
 		cout << "Error in input. " << endl 
-		<< "FE-Calc InputForces InputOps OutputFile [NumFrames]" << endl;
+		<< "FE-Calc InputForces InputOps OutputFile NumFiles FileDigits [NumOPs]" << endl;
 		return 1;
 	}
 	else
 		return 0;
 }
 
-int FindNumFrames(char* InputFile) {
+int FindNumOps(char* InputFile) {
     ifstream myfile(InputFile);    
     myfile.unsetf(ios_base::skipws);
 
@@ -28,17 +30,14 @@ int FindNumFrames(char* InputFile) {
     return line_count;
 }
 
-double* ReadInput(char* InputFile, const int NumFrames){
+void ReadInput(double* Vars, char* InputFile, const int NumFrames){
 	ifstream Fp(InputFile,ifstream::in);
-	double *Vars = new double[NumFrames];
 
 	for(int i = 0; i < NumFrames; i++)
 		Fp >> Vars[i];
-
-	return Vars;
 }
 
-void WriteOutput(char* OutputFile, double* Vars, const int NumFrames){
+void WriteOutput(char* OutputFile, const double* const Vars, const int NumFrames){
 	ofstream Fp;
 	Fp.setf(ios::scientific);
 	Fp.precision(6);
@@ -50,35 +49,76 @@ void WriteOutput(char* OutputFile, double* Vars, const int NumFrames){
 	Fp.close();
 }
 
-double* ComputeFE(const double* Forces, const double* OPs, const int NumFrames) {
-	double* FE = new double[NumFrames];
-	FE[0] = .0;
+double ComputeFE(const double* const Forces, const double* const OPs, const int length) {
+	double FE = .0;
 
-	for (int i = 1; i < NumFrames; i++)
-		FE[i] = FE[i-1] + 0.5 * (Forces[i] + Forces[i-1]) * (OPs[i] - OPs[i-1]);
+	for (int i = 1; i < length; i++)
+		FE += + 0.5 * (Forces[i] + Forces[i-1]) * (OPs[i] - OPs[i-1]);
 
 	return FE;
+}
+
+string* CreateFrameFile(const int NumFiles, const int length) {
+	string* FrameDigits = new string[NumFiles];
+
+	ofstream Fp;
+	Fp.open("temp.dat");
+	for(int i = 0; i < NumFiles; i++)
+		Fp << setfill('0') << setw(length) << i << endl;
+	Fp.close();
+
+	ifstream Fpp("temp.dat",ifstream::in);
+	for(int i = 0; i < NumFiles; i++)
+		getline(Fpp,FrameDigits[i]);
+
+	Fpp.close();
+	return FrameDigits;
 }
 
 int main(int argc, char** argv){
 	if(CheckForInputError(argc))
 		return 1;
 	else {
-		int Numframes;
-		char *InputForces = argv[1], *InputOPs = argv[2], *OutputFile = argv[3];
+		int NumOPs;
+		string InputForces = argv[1], InputOPs = argv[2], OutputFile = argv[3];
+		const int NumFiles = atoi(argv[4]), FileDigits = atoi(argv[5]);
+		double* FreeEnergy = new double[NumFiles+1];
+		FreeEnergy[0] = .0;
 
-		if(argc > 4)
-			Numframes = atoi(argv[4]);
+		string* FrameDigits = CreateFrameFile(NumFiles,FileDigits);
+		double *Forces = new double[NumOPs], *OPs = new double[NumOPs];
+		
+		if(argc > 6)
+			NumOPs = atoi(argv[6]);
 		else {
-			cout << "Computing number of frames ... " << endl; 
-			Numframes = FindNumFrames(InputForces);
-			cout << "Number of frames is " << Numframes << endl; 
+			cout << "Attempting to find the number of OPS ..." << endl;
+
+			string InputForcesTemp;
+			InputForcesTemp.append(InputForces);
+			InputForcesTemp.append(FrameDigits[0]);
+			InputForcesTemp.append(".dat");
+			NumOPs = FindNumOps(InputForcesTemp.c_str());
+
+			cout << "Number of OPs computed is " << NumOPs << endl;
 		}
-		 
-		double *Forces = ReadInput(InputForces,Numframes);
-		double *OPs = ReadInput(InputOPs,Numframes);
-		double *FreeEnergy = ComputeFE(Forces,OPs,Numframes);
-		WriteOutput(OutputFile,FreeEnergy,Numframes);
+
+		for (int i = 0; i < NumFiles; i++){
+			string InputForcesTemp;
+			InputForcesTemp.append(InputForces);
+			InputForcesTemp.append(FrameDigits[i]);
+			InputForcesTemp.append(".dat");
+
+			string InputOPsTemp;
+			InputOPsTemp.append(InputOPs);
+			InputOPsTemp.append(FrameDigits[i]);
+			InputOPsTemp.append(".dat");
+
+			ReadInput(Forces,InputForcesTemp.c_str(),NumOPs);
+			ReadInput(OPs,InputOPsTemp.c_str(),NumOPs);
+
+			FreeEnergy[i+1] = ComputeFE(Forces,OPs,NumOPs);
+		}
+		WriteOutput(OutputFile.c_str(),FreeEnergy,NumFiles+1);
 	}
 
 	return 0;
