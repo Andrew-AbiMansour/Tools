@@ -27,7 +27,8 @@ if __name__ == '__main__':
             R = RMSD(psf,dcd)
             plt.plot(R)
             plt.show()
+            R = RMSD(psf,dcd)
+            np.savetxt('rmsd.dat',R)
         else:
-            
             R = RMSD(psf,dcd)
             np.savetxt('rmsd.dat',R)
